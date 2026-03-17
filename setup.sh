@@ -98,9 +98,18 @@ success "Helm repos updated"
 info "Deploying kube-prometheus-stack..."
 kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 
+HELM_EXTRA_ARGS=""
+if [[ "$TEAMS_ENABLED" == false ]]; then
+  # Override the receiver to a null sink so Alertmanager doesn't try to reach the Teams proxy
+  HELM_EXTRA_ARGS="--set alertmanager.config.route.receiver=null"
+  HELM_EXTRA_ARGS="$HELM_EXTRA_ARGS --set alertmanager.config.route.routes=null"
+  HELM_EXTRA_ARGS="$HELM_EXTRA_ARGS --set alertmanager.config.receivers[0].name=null"
+fi
+
 helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   --values "${SCRIPT_DIR}/helm-values/prometheus-values.yaml" \
+  $HELM_EXTRA_ARGS \
   --wait --timeout 5m
 
 success "kube-prometheus-stack deployed"
