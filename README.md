@@ -39,7 +39,7 @@ argocd-monitoring-setup/
 └── README.md
 ```
 
-### GitOps repository (separate repo)
+### GitOps repository (sample repo)
 
 ```
 argocd-gitops/
@@ -58,7 +58,7 @@ argocd-gitops/
 ## Architecture
 
 ```
-                        GitOps Repo (GitHub)
+                        GitOps Repo - Github (sample)
                               │
                     ┌─────────┴──────────┐
                     │   apps/ folder      │
