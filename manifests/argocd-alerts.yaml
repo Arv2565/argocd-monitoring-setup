@@ -1,0 +1,65 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: argocd-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: argocd.application.status
+      interval: 30s
+      rules:
+        - alert: ArgoCDAppOutOfSync
+          expr: argocd_app_info{sync_status!="Synced"} == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "ArgoCD app {{ $labels.name }} is out of sync"
+            description: "App {{ $labels.name }} in {{ $labels.dest_namespace }} has sync status: {{ $labels.sync_status }}"
+
+        - alert: ArgoCDAppUnhealthy
+          expr: argocd_app_info{health_status!="Healthy"} == 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "ArgoCD app {{ $labels.name }} is unhealthy"
+            description: "App {{ $labels.name }} in {{ $labels.dest_namespace }} has health status: {{ $labels.health_status }}"
+
+        - alert: ArgoCDAppSyncFailed
+          expr: argocd_app_info{sync_status="Unknown"} == 1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "ArgoCD app {{ $labels.name }} sync is unknown"
+            description: "App {{ $labels.name }} sync status is unknown — possible sync failure."
+
+        - alert: ArgoCDAppMissing
+          expr: absent(argocd_app_info)
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "No ArgoCD app metrics found"
+            description: "ArgoCD application metrics are missing — ArgoCD may be down."
+
+        - alert: ArgoCDHighSyncRate
+          expr: increase(argocd_app_sync_total[10m]) > 10
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High sync rate for app {{ $labels.name }}"
+            description: "App {{ $labels.name }} has synced more than 10 times in the last 10 minutes."
+
+        - alert: ArgoCDControllerDown
+          expr: absent(up{job="argocd-metrics"} == 1)
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "ArgoCD application controller is down"
+            description: "ArgoCD metrics job is not being scraped — controller may be down."

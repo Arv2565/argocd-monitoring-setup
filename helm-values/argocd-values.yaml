@@ -1,0 +1,60 @@
+server:
+  service:
+    type: NodePort
+    nodePortHttp: 30080
+  metrics:
+    enabled: true
+    service:
+      servicePort: 8083
+      portName: metrics
+    serviceMonitor:
+      enabled: true
+      namespace: monitoring
+      additionalLabels:
+        release: kube-prometheus-stack
+
+controller:
+  metrics:
+    enabled: true
+    service:
+      servicePort: 8082
+      portName: metrics
+    serviceMonitor:
+      enabled: true
+      namespace: monitoring
+      additionalLabels:
+        release: kube-prometheus-stack
+
+repoServer:
+  metrics:
+    enabled: true
+    service:
+      servicePort: 8084
+      portName: metrics
+    serviceMonitor:
+      enabled: true
+      namespace: monitoring
+      additionalLabels:
+        release: kube-prometheus-stack
+
+applicationSet:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      namespace: monitoring
+      additionalLabels:
+        release: kube-prometheus-stack
+
+notifications:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      namespace: monitoring
+      additionalLabels:
+        release: kube-prometheus-stack
+
+configs:
+  params:
+    server.insecure: true

@@ -1,0 +1,74 @@
+grafana:
+  enabled: true
+  adminPassword: "admin123"
+  service:
+    type: NodePort
+    nodePort: 30030
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard # Sidecar watches for ConfigMaps with this label
+
+prometheus:
+  service:
+    type: NodePort
+    nodePort: 30090
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+    podMonitorNamespaceSelector: {}
+    additionalScrapeConfigs:
+      - job_name: "argocd-metrics"
+        static_configs:
+          - targets:
+              - "argocd-application-controller-metrics.argocd.svc.cluster.local:8082"
+      - job_name: "argocd-server-metrics"
+        static_configs:
+          - targets:
+              - "argocd-server-metrics.argocd.svc.cluster.local:8083"
+      - job_name: "argocd-repo-server-metrics"
+        static_configs:
+          - targets:
+              - "argocd-repo-server-metrics.argocd.svc.cluster.local:8084"
+
+alertmanager:
+  enabled: true
+  service:
+    type: NodePort
+    nodePort: 30093
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ["alertname", "namespace"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: "msteams"
+      routes:
+        - match:
+            severity: critical
+          receiver: "msteams"
+          continue: true
+        - match:
+            severity: warning
+          receiver: "msteams"
+    receivers:
+      - name: "msteams"
+        webhook_configs:
+          - url: "http://alertmanager-msteams.monitoring.svc.cluster.local:2000/alertmanager"
+            send_resolved: true
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 1Gi
+
+prometheusOperator:
+  enabled: true

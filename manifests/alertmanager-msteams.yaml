@@ -1,0 +1,38 @@
+# The TEAMS_WEBHOOK_URL placeholder gets replaced by setup.sh using sed
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager-msteams
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager-msteams
+  template:
+    metadata:
+      labels:
+        app: alertmanager-msteams
+    spec:
+      containers:
+        - name: alertmanager-msteams
+          image: bzon/prometheus-msteams:latest
+          args:
+            - -teams-incoming-webhook-url
+            - "TEAMS_WEBHOOK_URL"
+            - -teams-request-uri
+            - alertmanager
+          ports:
+            - containerPort: 2000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager-msteams
+  namespace: monitoring
+spec:
+  selector:
+    app: alertmanager-msteams
+  ports:
+    - port: 2000
+      targetPort: 2000

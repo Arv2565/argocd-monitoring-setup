@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-tiles-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1" # Grafana sidecar picks up any ConfigMap with this label
+data:
+  argocd-tiles.json: |
+    {
+      "title": "ArgoCD Application Tiles v7",
+      "uid": "argocd-tiles-v7",
+      "timezone": "browser",
+      "schemaVersion": 27,
+      "refresh": "30s",
+      "templating": {
+        "list": [
+          {
+            "name": "app",
+            "type": "query",
+            "datasource": "prometheus",
+            "query": "label_values(argocd_app_info, name)",
+            "refresh": 2,
+            "multi": true,
+            "includeAll": true,
+            "current": { "text": "All", "value": "$__all" },
+            "label": "Application"
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1, "title": "Total", "type": "stat",
+          "gridPos": { "h": 3, "w": 4, "x": 0, "y": 0 },
+          "targets": [{ "expr": "count(argocd_app_info)", "legendFormat": "", "refId": "A" }],
+          "options": { "colorMode": "background", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "color": { "fixedColor": "blue", "mode": "fixed" } } }
+        },
+        {
+          "id": 2, "title": "Healthy + Synced", "type": "stat",
+          "gridPos": { "h": 3, "w": 4, "x": 4, "y": 0 },
+          "targets": [{ "expr": "count(argocd_app_info{health_status=\"Healthy\", sync_status=\"Synced\"}) or vector(0)", "legendFormat": "", "refId": "A" }],
+          "options": { "colorMode": "background", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "color": { "fixedColor": "#1a9c4e", "mode": "fixed" } } }
+        },
+        {
+          "id": 3, "title": "Healthy + OutOfSync", "type": "stat",
+          "gridPos": { "h": 3, "w": 4, "x": 8, "y": 0 },
+          "targets": [{ "expr": "count(argocd_app_info{health_status=\"Healthy\", sync_status!=\"Synced\"}) or vector(0)", "legendFormat": "", "refId": "A" }],
+          "options": { "colorMode": "background", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "color": { "fixedColor": "#f57c00", "mode": "fixed" } } }
+        },
+        {
+          "id": 4, "title": "Degraded", "type": "stat",
+          "gridPos": { "h": 3, "w": 4, "x": 12, "y": 0 },
+          "targets": [{ "expr": "count(argocd_app_info{health_status=\"Degraded\"}) or vector(0)", "legendFormat": "", "refId": "A" }],
+          "options": { "colorMode": "background", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "color": { "fixedColor": "#d32f2f", "mode": "fixed" } } }
+        },
+        {
+          "id": 5, "title": "Progressing", "type": "stat",
+          "gridPos": { "h": 3, "w": 4, "x": 16, "y": 0 },
+          "targets": [{ "expr": "count(argocd_app_info{health_status=\"Progressing\"}) or vector(0)", "legendFormat": "", "refId": "A" }],
+          "options": { "colorMode": "background", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "color": { "fixedColor": "#f9a825", "mode": "fixed" } } }
+        },
+        {
+          "id": 6, "title": "Missing", "type": "stat",
+          "gridPos": { "h": 3, "w": 4, "x": 20, "y": 0 },
+          "targets": [{ "expr": "count(argocd_app_info{health_status=\"Missing\"}) or vector(0)", "legendFormat": "", "refId": "A" }],
+          "options": { "colorMode": "background", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+          "fieldConfig": { "defaults": { "color": { "fixedColor": "#6a1b9a", "mode": "fixed" } } }
+        },
+        {
+          "id": 11,
+          "title": "$app",
+          "type": "stat",
+          "repeat": "app",
+          "repeatDirection": "h",
+          "maxPerRow": 6,
+          "gridPos": { "h": 4, "w": 4, "x": 0, "y": 4 },
+          "targets": [
+            {
+              "expr": "max by (name, health_status, sync_status) (argocd_app_info{name=\"$app\"})",
+              "legendFormat": "{{health_status}} | {{sync_status}}",
+              "refId": "A",
+              "instant": true
+            }
+          ],
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "textMode": "name",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "grey", "value": null }] }
+            },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Healthy | Synced" },        "properties": [{ "id": "color", "value": { "fixedColor": "#1a9c4e", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Healthy | OutOfSync" },     "properties": [{ "id": "color", "value": { "fixedColor": "#f57c00", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Healthy | Unknown" },       "properties": [{ "id": "color", "value": { "fixedColor": "#ff9800", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Degraded | Synced" },       "properties": [{ "id": "color", "value": { "fixedColor": "#7f0000", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Degraded | OutOfSync" },    "properties": [{ "id": "color", "value": { "fixedColor": "#d32f2f", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Degraded | Unknown" },      "properties": [{ "id": "color", "value": { "fixedColor": "#b71c1c", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Progressing | Synced" },    "properties": [{ "id": "color", "value": { "fixedColor": "#c6ff00", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Progressing | OutOfSync" }, "properties": [{ "id": "color", "value": { "fixedColor": "#f9a825", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Missing | Synced" },        "properties": [{ "id": "color", "value": { "fixedColor": "#8e24aa", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Missing | OutOfSync" },     "properties": [{ "id": "color", "value": { "fixedColor": "#6a1b9a", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Missing | Unknown" },       "properties": [{ "id": "color", "value": { "fixedColor": "#4a148c", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Suspended | Synced" },      "properties": [{ "id": "color", "value": { "fixedColor": "#78909c", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Suspended | OutOfSync" },   "properties": [{ "id": "color", "value": { "fixedColor": "#546e7a", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Unknown | Synced" },        "properties": [{ "id": "color", "value": { "fixedColor": "#9e9e9e", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Unknown | OutOfSync" },     "properties": [{ "id": "color", "value": { "fixedColor": "#757575", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "Unknown | Unknown" },       "properties": [{ "id": "color", "value": { "fixedColor": "#616161", "mode": "fixed" } }] }
+            ]
+          }
+        }
+      ]
+    }
