@@ -4,7 +4,7 @@ set -euo pipefail
 # ─────────────────────────────────────────────
 #  ArgoCD Monitoring Stack — Setup Script
 #  KIND + WSL | kube-prometheus + ArgoCD
-#  Alerts → Microsoft Teams
+#  Alerts → Microsoft Teams (optional)
 # ─────────────────────────────────────────────
 
 RED='\033[0;31m'
@@ -37,15 +37,23 @@ echo -e "${NC}"
 echo -e "${YELLOW}── Configuration ─────────────────────────────${NC}"
 read -rp "  GitHub username            : " GITHUB_USER
 read -rp "  GitOps repo name           : " GITHUB_REPO
-read -rp "  Teams Incoming Webhook URL : " TEAMS_WEBHOOK_URL
+echo ""
+read -rp "  Teams Incoming Webhook URL (press Enter to skip) : " TEAMS_WEBHOOK_URL
 echo ""
 
 [[ -n "$GITHUB_USER" ]] || error "GitHub username cannot be empty"
 [[ -n "$GITHUB_REPO" ]] || error "GitHub repo name cannot be empty"
-[[ -n "$TEAMS_WEBHOOK_URL" ]] || error "Teams webhook URL cannot be empty"
 
 GITOPS_REPO="https://github.com/${GITHUB_USER}/${GITHUB_REPO}.git"
 CLUSTER_NAME="argocd-monitoring"
+
+if [[ -n "$TEAMS_WEBHOOK_URL" ]]; then
+  TEAMS_ENABLED=true
+  info "Teams alerting: ENABLED"
+else
+  TEAMS_ENABLED=false
+  warn "Teams alerting: SKIPPED (no webhook URL provided)"
+fi
 
 # ─────────────────────────────────────────────
 # STEP 1 — Prerequisite Checks
@@ -98,16 +106,19 @@ helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
 success "kube-prometheus-stack deployed"
 
 # ─────────────────────────────────────────────
-# STEP 5 — Teams Alertmanager Proxy
+# STEP 5 — Teams Alertmanager Proxy (optional)
 # ─────────────────────────────────────────────
-info "Deploying Microsoft Teams alert proxy..."
+if [[ "$TEAMS_ENABLED" == true ]]; then
+  info "Deploying Microsoft Teams alert proxy..."
 
-# Replace the placeholder with the actual webhook URL and apply
-sed "s|TEAMS_WEBHOOK_URL|${TEAMS_WEBHOOK_URL}|g" \
-  "${SCRIPT_DIR}/manifests/alertmanager-msteams.yaml" | kubectl apply -f -
+  sed "s|TEAMS_WEBHOOK_URL|${TEAMS_WEBHOOK_URL}|g" \
+    "${SCRIPT_DIR}/manifests/alertmanager-msteams.yaml" | kubectl apply -f -
 
-kubectl rollout status deployment/alertmanager-msteams -n monitoring --timeout=120s
-success "Teams proxy deployed"
+  kubectl rollout status deployment/alertmanager-msteams -n monitoring --timeout=120s
+  success "Teams proxy deployed"
+else
+  warn "Skipping Teams proxy deployment"
+fi
 
 # ─────────────────────────────────────────────
 # STEP 6 — ArgoCD
@@ -139,7 +150,6 @@ success "Dashboard ConfigMap applied (Grafana sidecar will auto-import it)"
 # ─────────────────────────────────────────────
 info "Deploying root application → ${GITOPS_REPO}"
 
-# Replace the placeholder with the actual gitops repo URL and apply
 sed "s|GITOPS_REPO|${GITOPS_REPO}|g" \
   "${SCRIPT_DIR}/manifests/root-app.yaml" | kubectl apply -f -
 
@@ -168,6 +178,11 @@ echo ""
 echo -e "  ${CYAN}Dashboard${NC}      →  http://localhost:30030/d/argocd-tiles-v7"
 echo ""
 echo -e "  ${YELLOW}GitOps repo${NC}    →  ${GITOPS_REPO}"
+if [[ "$TEAMS_ENABLED" == true ]]; then
+  echo -e "  ${YELLOW}Teams alerts${NC}   →  Enabled"
+else
+  echo -e "  ${YELLOW}Teams alerts${NC}   →  Disabled (no webhook URL provided)"
+fi
 echo ""
 echo -e "  ${CYAN}To add a new app:${NC}"
 echo -e "  1. Add values/manifests to your gitops repo"
